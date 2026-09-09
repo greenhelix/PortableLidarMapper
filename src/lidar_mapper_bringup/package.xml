@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>lidar_mapper_bringup</name>
+  <version>0.0.1</version>
+  <description>전체 파이프라인(mock/real 라이다 + slam_toolbox + rosbridge) 통합 실행용</description>
+  <maintainer email="dev@example.com">dev</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>lidar_mapper_mock</exec_depend>
+  <exec_depend>sllidar_ros2</exec_depend>
+  <exec_depend>rf2o_laser_odometry</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>rosbridge_server</exec_depend>
+  <exec_depend>rosapi</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
