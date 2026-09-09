@@ -1,0 +1,91 @@
+slam_toolbox:
+  ros__parameters:
+
+    # Plugin params
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
+
+    # ROS Parameters
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_footprint
+    scan_topic: /scan
+    use_map_saver: true
+    mode: mapping #localization
+
+    debug_logging: false
+    throttle_scans: 1
+    transform_publish_period: 0.02 #if 0 never publishes odometry
+    # 기본값 5.0초 -> 0.5초. 휴대용 기기는 사람이 걷는 속도라 5초 대기는 너무 느려서
+    # 새 공간으로 이동해도 화면(Foxglove /map)이 한참 뒤에야 갱신되는 것처럼 보였음.
+    map_update_interval: 0.5
+    resolution: 0.05
+    min_laser_range: 0.0 #for rastering images
+    max_laser_range: 20.0 #for rastering images
+    minimum_time_interval: 0.5
+    # 0.2초는 너무 빠듯해서 처리가 살짝 밀리면 "Message Filter dropping message ...
+    # queue is full" 경고와 함께 그 스캔이 통째로 버려짐(원인: 2026-09-04 진단).
+    # 여유를 줘서 스캔 유실을 줄임.
+    transform_timeout: 0.5
+    tf_buffer_duration: 30.
+    stack_size_to_use: 40000000 #// program needs a larger stack size to serialize large maps
+    enable_interactive_mode: true
+
+    # General Parameters
+    use_scan_matching: true
+    use_scan_barycenter: true
+    # 기본값(0.5m, 0.5rad)은 바퀴 로봇 기준. 사람 도보 속도/회전이 더 빠르고 급격해서
+    # config/slam_params_notes.md에서 이미 예상했던 대로 낮춤 (config/slam_params_notes.md 참고).
+    # 단, 0.2rad까지 낮췄더니 손으로 빠르게 홱홱 돌릴 때의 순간적인(잡음 섞인) 회전까지
+    # 다 스캔 처리 대상이 되어 지도가 지저분해지는 부작용이 있어 0.35로 살짝 올림 —
+    # 응답성과 잡음 내성 사이의 절충.
+    minimum_travel_distance: 0.1
+    minimum_travel_heading: 0.35
+    scan_buffer_size: 10
+    scan_buffer_maximum_scan_distance: 10.0
+    link_match_minimum_response_fine: 0.1
+    link_scan_maximum_distance: 1.5
+    loop_search_maximum_distance: 3.0
+    do_loop_closing: true
+    loop_match_minimum_chain_size: 10
+    loop_match_maximum_variance_coarse: 3.0
+    loop_match_minimum_response_coarse: 0.35
+    loop_match_minimum_response_fine: 0.45
+
+    # Correlation Parameters - Correlation Parameters
+    # 한 번 1.0m로 넓혀봤다가 되돌림(2026-09-04): 넓힐수록 스캔 1개당 계산량이
+    # 늘어서 처리가 밀리고, 그 결과 "Message Filter dropping message ... queue is
+    # full"로 스캔이 버려지면서 오히려 지도가 방사형으로 지저분해지는 부작용을
+    # 직접 확인함. 기본값(0.5m) 유지.
+    correlation_search_space_dimension: 0.5
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.1
+
+    # Correlation Parameters - Loop Closure Parameters
+    loop_search_space_dimension: 8.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # Scan Matcher Parameters
+    distance_variance_penalty: 0.5
+    angle_variance_penalty: 1.0
+
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true
+    # 격자 한 칸을 "벽"으로 확정하기 전에 몇 번 부딪혀야 하는지(min_pass_through)와
+    # 몇 %나 부딪혀야 하는지(occupancy_threshold). 기본값(2번, 10%)은 너무 낮아서
+    # 튀는 반사/노이즈 한두 번에도 벽으로 오인됨 -> 확정 기준을 높여서 "찌꺼기"
+    # 데이터가 최종 지도에 남지 않도록 함. map_update_interval을 0.5초로 낮춰둬서
+    # 확정이 늦어지는 체감은 크지 않음.
+    # 2026-09-08: 4/0.35는 너무 느리게 느껴진다는 피드백으로 3/0.25로 완화
+    # (노이즈 억제와 반응 속도 사이 절충, 필요하면 다시 조정).
+    min_pass_through: 3
+    occupancy_threshold: 0.25
