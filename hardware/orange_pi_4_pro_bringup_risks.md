@@ -70,7 +70,63 @@ slam_toolbox의 Ceres 솔버 연산이 정확히 그런 지속적 CPU 부하다.
 필요한 커널 기능(overlayfs, cgroups)은 문제없을 것으로 예상. 이 부분은 리스크가
 낮다고 판단.
 
-## 5. 요약 — 예상 체크리스트 (도착 후 순서대로 검증)
+## 5. 상세 설정 절차 (예상 — 도착 후 실측 명령어로 갱신할 것)
+
+아래는 Armbian/일반 SBC 관례 기준으로 미리 적어두는 예상 절차다. **정확한 명령은
+실제 이미지를 받아봐야 확정되며, 도착 후 이 문서를 실측 내용으로 덮어쓸 것.**
+
+### 5.1 OS 이미지 설치
+1. 이미지 다운로드: 벤더 공식 이미지(구매 페이지/orangepi.org 다운로드 섹션) 또는
+   커뮤니티 [jonas5/orangepi-4pro-armbian](https://github.com/jonas5/orangepi-4pro-armbian) 릴리즈 중 선택.
+   - 헤드리스(디스플레이 없이 서버 용도)로만 쓸 거라 GUI 없는 "server/minimal" 이미지가 적합.
+2. eMMC가 있으면 eMMC로 굽는 게 SD카드보다 안정적(전원 순간 끊김에 덜 취약).
+   없으면 SD카드에 `balenaEtcher` 또는 `dd`로 굽기.
+3. 최초 부팅 후 기본 계정/비밀번호 변경, `raspi-config` 격인 `armbian-config`
+   (또는 벤더 자체 설정 툴)로 로케일/타임존 설정.
+
+### 5.2 네트워크 & SSH
+1. 유선(기가비트 이더넷)으로 먼저 붙여서 원격 SSH 접속 확보 — Wi-Fi가 바로 안
+   잡힐 가능성(1.5번/2번 리스크)에 대비해 유선을 1순위로.
+2. Wi-Fi는 `nmcli` 또는 `armbian-config` → Network 메뉴로 SSID/비번 등록.
+3. `ssh-copy-id`로 이 PC(또는 노트북)에서 키 기반 접속 등록 — 매번 비번 입력 안 해도 되게.
+
+### 5.3 Docker 설치
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER   # dialout 그룹도 같이: sudo usermod -aG dialout $USER
+# 재로그인 후 확인
+docker run hello-world
+```
+
+### 5.4 프로젝트 이식
+```bash
+git clone git@github.com:greenhelix/PortableLidarMapper.git
+cd PortableLidarMapper
+./docker/run_dev.sh --build --with-lidar
+```
+`ros:humble-ros-base` 등 우리가 쓰는 베이스 이미지들은 공식적으로 arm64 빌드를
+제공하므로, **`docker build` 명령 자체는 코드 수정 없이 그대로 실행되는 게
+정상**이다. 여기서 에러가 나면 그게 이 이식 과정의 핵심 검증 실패 지점.
+
+### 5.5 GPIO/I2C 활성화 (향후 IMU용, 지금 당장은 불필요)
+Armbian 계열은 보통 `armbian-config` → System → Hardware 메뉴에서 I2C/SPI overlay를
+켜거나, `/boot/orangepiEnv.txt`(또는 동급 설정 파일)에 `overlays=i2c0` 같은 줄을
+추가하는 방식이다. **정확한 GPIO 핀 번호/오버레이 이름은 보드 실물의 핀아웃
+문서를 봐야 확정** — 지금은 추측하지 않고, 도착 후 벤더 핀아웃 문서로 채울 것.
+
+### 5.6 발열 모니터링
+```bash
+# Armbian
+armbianmonitor -m
+# 또는 범용
+watch -n1 cat /sys/class/thermal/thermal_zone0/temp   # 단위: milli-°C
+```
+slam_toolbox 부하 테스트 중 이 값을 계속 관찰해서 90°C 근처까지 가는지, 쓰로틀링
+표시(`vcgencmd get_throttled`는 라즈베리파이 전용이라 안 됨 — Armbian은
+`armbianmonitor -m`의 throttling 표시나 `dmesg | grep -i throttl`로 확인)가
+뜨는지 확인.
+
+## 6. 요약 — 예상 체크리스트 (도착 후 순서대로 검증)
 0. [ ] **(구매 전)** 보유 중이거나 살 보조배터리가 5V/3A(15W) 이상 출력, 케이블도
    3A 대응인지 확인 — 위 1.5번 참고
 1. [ ] 벤더 공식 이미지 vs jonas5 커뮤니티 Armbian 이미지 중 선택, 설치
