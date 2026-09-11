@@ -14,7 +14,7 @@
 | 항목 | 내용 |
 |---|---|
 | 센서 | RPLIDAR C1 (구매 완료) |
-| 보드 | **Orange Pi 4 Pro 4GB** (Allwinner A733, 2x A76+6x A55) — 2026-09-08 결정, 구매 전. Raspberry Pi 5에서 변경 (아래 사유 참고) |
+| 보드 | **Orange Pi 4 Pro 4GB** (Allwinner A733, 2x A76+6x A55) — 2026-09-08 결정, **2026-09-11 구매 완료(배송 중)**. Raspberry Pi 5에서 변경 (아래 사유 참고) |
 | 폼팩터 | 텀블러형 케이스, 백팩 측면 포켓 휴대 |
 | 목적 | 실내 2D SLAM 지도 + 실외 GPS 경로 기록 |
 | SW 스택 | ROS2 Humble + slam_toolbox + rosbridge + Foxglove |
@@ -219,7 +219,8 @@ RViz2는 로컬 GUI라 폰 원격 접속이 안 되기 때문에 Phase 2에서 F
 - [ ] 텀블러 실측 후 `hardware/tumbler_mount_design.md` 치수 확정 + 3D프린팅 도면
 - [x] 보드 결정: Raspberry Pi 5 → **Orange Pi 4 Pro 4GB**로 변경 (2026-09-08,
       사유는 리스크 섹션 참고)
-- [ ] Orange Pi 4 Pro 구매 + 도착 후 이식 (Phase 2 시작 조건)
+- [x] Orange Pi 4 Pro 구매 (2026-09-11, 배송 중)
+- [ ] 도착 후 `hardware/orange_pi_4_pro_bringup_risks.md` 절차대로 이식 (Phase 2 시작 조건)
 
 ---
 

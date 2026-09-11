@@ -92,7 +92,7 @@ ros2 launch lidar_mapper_bringup bringup.launch.py use_mock:=false lidar_serial_
 | 부품 | 내용 |
 |---|---|
 | 센서 | RPLIDAR C1 |
-| 보드 | Orange Pi 4 Pro 4GB (Allwinner A733) — 구매 전, 상세는 [`hardware/board_price_tracking.md`](./hardware/board_price_tracking.md) |
+| 보드 | Orange Pi 4 Pro 4GB (Allwinner A733) — **구매 완료(배송 중, 2026-09-11)**, 상세는 [`hardware/board_price_tracking.md`](./hardware/board_price_tracking.md) |
 | 폼팩터 | 텀블러형 케이스, 백팩 측면 휴대 |
 
 ## 저장소 구조

@@ -7,7 +7,7 @@
 | 부품 | 상태 |
 |---|---|
 | RPLIDAR C1 | ✅ 보유 (PC로 실측/실사용 검증 완료) |
-| Orange Pi 4 Pro 4GB | ❌ 미구매 (`hardware/board_price_tracking.md` 참고) |
+| Orange Pi 4 Pro 4GB | ✅ 구매 완료(배송 중, 2026-09-11) (`hardware/board_price_tracking.md` 참고) |
 | 텀블러/보온병 케이스 | ❌ 미확정 (후보 실측 전) |
 | 보조배터리 | ❌ 미확정 (5V/3A 이상 출력 필요, 아래 1번 참고) |
 | 평탄화 디스크/브라켓(3D프린팅) | ❌ 설계 전 |
