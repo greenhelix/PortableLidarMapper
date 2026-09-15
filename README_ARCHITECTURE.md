@@ -136,6 +136,139 @@ docker/ # 개발 환경 (README_ARCHITECTURE 0번 항목 및 docker/README.md �
 
 ---
 
+## 3.5 확장 아키텍처: 온디맨드 연결 · Store-and-Forward · 라이다 한계 극복 · 진화형 지도 (2026-09-15 설계 확정)
+
+Phase 2(보드 도착 후 실사용)를 대비해 Flutter 앱 + 백엔드 확장 구조를 설계했다.
+**이 절은 전부 설계만 확정된 상태이고 아직 코드 구현 전**이다 — 5.4번 로드맵에서
+진행 상황을 추적한다.
+
+### 3.5.1 용어 정리
+- **ROS2 노드**: 독립적으로 실행되는 하나의 프로세스(예: 라이다 드라이버, SLAM).
+  노드끼리는 직접 호출하지 않고 **토픽(주제)** 을 통해 메시지를 주고받는다.
+- **rosbridge**: ROS2 토픽/서비스를 WebSocket + JSON으로 바꿔서 브라우저/폰
+  앱처럼 ROS2를 모르는 외부 클라이언트도 통신할 수 있게 해주는 게이트웨이
+  (`:9090` 포트, 로컬망에서만 동작, 인터넷 불필요).
+- **SLAM(동시적 위치추정 및 지도작성)**: "내가 어디 있는지"와 "주변 지도가
+  어떻게 생겼는지"를 동시에 풀어내는 문제. 이 프로젝트에선 `slam_toolbox`가 담당.
+- **오도메트리**: 절대 위치가 아니라 "직전 대비 얼마나 움직였는지"를 추정하는
+  것. 바퀴 인코더가 없는 휴대 기기라 `rf2o_laser_odometry`(연속된 라이다 스캔
+  비교)로 추정한다.
+
+### 3.5.2 온디맨드 연결 모델 (배터리 절약)
+- **Orange Pi = 자율 데이터 수집 엔진**. 폰(또는 물리 버튼)이 명시적으로 "수집
+  시작"을 눌러야만 시작하고(부팅만으로 자동 시작 안 함 — 수평/장착 확인 전
+  쓰레기 데이터 방지), 시작된 뒤로는 폰 연결 여부와 무관하게 계속 수집한다.
+- **폰 = 온디맨드 모니터 + 중개자**. 평소엔 연결을 끊어(핫스팟 OFF) 배터리를
+  아끼고, 확인하고 싶을 때만 핫스팟을 켜서 **mDNS(Avahi)** 로 `lidarmapper.local`
+  같은 호스트이름을 찾아 접속한다(IP가 매번 바뀌어도 문제없음). 이미 아는
+  SSID는 리눅스 NetworkManager가 알아서 재접속하므로 커스텀 코드가 필요 없다.
+
+### 3.5.3 Store-and-Forward (저장 후 전송)
+Orange Pi는 네트워크 유무와 무관하게 항상 로컬 SQLite에 먼저 저장(**STORE**)하고,
+연결이 생기면 PC의 DB로 미전송분만 밀어올린다(**FORWARD**). 오프라인(산속/지하
+등)에서도 100% 수집되고, 연결되면 자동으로 밀린 데이터가 업로드된다.
+
+[다이어그램: data_sync_diagram](https://claude.ai/code/artifact/0686cb80-b7e4-421b-a3e3-a1d0db071f2b)
+
+| 경로 | 용도 | 프로토콜 |
+|---|---|---|
+| 폰 ↔ Orange Pi | 실시간 확인/제어 | 기존 rosbridge WebSocket(:9090) 재사용 |
+| Orange Pi → PC | 세션 종료 후 배치 전송(백업) | HTTP REST(POST), PC에 작은 FastAPI 엔드포인트 1개 |
+
+MQTT 브로커/실시간 스트리밍 전용/클라우드 우선 업로드도 검토했으나, 오프라인
+내구성이나 "최소구조" 원칙과 안 맞아 기각했다(대안 비교는 실제 구현 계획서 참고).
+
+### 3.5.4 자동 데이터 최적화 (저장공간 관리)
+지도(.pgm/.yaml)와 DB 메타데이터만 저장하는 지금 설계는 세션 1,000회 누적해도
+~100MB 수준으로 사실상 안전하다. 위험한 건 원본 스캔 로그(rosbag, 세션당
+~30~40MB)인데 **기본으로 꺼져 있음**. PC로 동기화 완료(`synced_at` 채워짐)된
+세션은 일정 기간(예: 7일) 뒤 로컬 원본을 자동 삭제하는 정책을 예정하며,
+동기화 안 된 데이터는 절대 자동 삭제하지 않는다.
+
+### 3.5.5 관계형 DB 스키마 (실내/실외/산길 공통)
+장소(`locations`)를 독립 개체로 두고, 장소 종류별 세부정보를 1:1 확장
+테이블(`building_details`, `mountain_details`)로, 방문 기록을 `sessions`로
+분리한 관계형 구조. 같은 장소를 여러 번 방문해도 장소는 한 번만 등록되고
+세션만 늘어난다.
+
+```sql
+CREATE TABLE locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    location_type TEXT NOT NULL,          -- 'building' | 'mountain' | ...
+    name TEXT NOT NULL,
+    gps_lat REAL,
+    gps_lon REAL,
+    current_map_serialized_path TEXT,     -- 진화형 지도용, 3.5.6 참고
+    map_version INTEGER DEFAULT 0
+);
+
+CREATE TABLE building_details (
+    location_id INTEGER PRIMARY KEY REFERENCES locations(id),
+    floor INTEGER, building_type TEXT
+);
+
+CREATE TABLE mountain_details (
+    location_id INTEGER PRIMARY KEY REFERENCES locations(id),
+    trail_name TEXT, trail_difficulty TEXT
+);
+
+CREATE TABLE sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    location_id INTEGER REFERENCES locations(id),
+    started_at TEXT NOT NULL, ended_at TEXT NOT NULL,
+    map_pgm_path TEXT, map_yaml_path TEXT,
+    summary TEXT, metadata_json TEXT,     -- 전용 테이블 없는 새 장소 종류용 escape hatch
+    synced_at TEXT                        -- NULL = 미동기화
+);
+```
+
+[다이어그램: db_schema_diagram](https://claude.ai/code/artifact/187c3b2d-13b7-421d-bd72-93b475922707)
+
+### 3.5.6 진화형 지도 축적 (같은 장소 반복 방문 시 히스토리로 보완)
+처음 방문에서 만드는 지도는 완성도가 낮을 수밖에 없다(30~50% 예상). slam_toolbox의
+`serialize_map`/`deserialize_map` 서비스를 이용해 재방문 시 이전 지도를 불러와
+**이어서** 매핑하면, 겹치는 구간은 스캔 매칭(loop closure)이 자동으로 정렬하고
+빈 구석만 새로 채워진다 — 재방문 데이터가 중복이 아니라 보완으로 흡수된다.
+`map_versions` 테이블(location_id, session_id, version, serialized_path 등)로
+버전 히스토리를 덮어쓰지 않고 계속 쌓는다.
+
+### 3.5.7 라이다 한계 극복 전략
+텀블러+가방 옆주머니 장착 특성상 ①몸/가방에 시야 일부가 항상 가려짐,
+②방향 전환/회전이 잦음, ③도보 속도로 스캔 간 겹침 부족, ④사람 등 동적
+장애물, ⑤나무 많은 숲길처럼 2D 라이다가 놓치기 쉬운 환경 — 이 5가지를 새
+알고리즘 없이 ROS2 표준 패키지로 대응한다.
+
+- **가림각 대응**: `laser_filters` 패키지(ROS2 표준) — `LaserScanAngularBoundsFilter`
+  (고정 각도 구간 무시), `LaserScanFootprintFilter`(자기 몸체 반사 제거),
+  `LaserScanRangeFilter`/`LaserScanIntensityFilter`(근접/약한 반사 제거),
+  `LaserScanSpeckleFilter`(고립 노이즈 제거), `ScanShadowsFilter`(물체 가장자리
+  유령점 제거 — 나뭇가지 많은 환경에 유용).
+- **회전 오차 보정**: `robot_localization`(EKF, 확장 칼만 필터)로 IMU와 rf2o
+  라이다 오도메트리를 융합 — 회전 중엔 IMU를, 직선 이동 중엔 라이다를 더
+  신뢰하도록 자동 가중. slam_toolbox에는 이 융합된 오도메트리를 입력한다.
+  [다이어그램: ekf_diagram](https://claude.ai/code/artifact/56d51d00-6c3a-4580-b798-53d9f7a12807)
+- **환경 프리셋**: SLAM 파라미터 + 라이다 필터 체인을 "실내"/"산길" 프리셋으로
+  묶어서 세션 시작 전 선택 — Flutter 앱에서 프리셋 선택, 수동 파라미터 조절,
+  필터 전/후 실시간 미리보기(테스트 모드)를 제공할 예정(Tier1-7).
+- **3D 라이다는 채택 안 함**: 스피닝형(Livox Mid-360 ~$734, Unitree L1 단종)과
+  solid-state ToF형(CygLiDAR D2, $181.95이나 시야각 120°/65°로 360° 회전
+  스캔 전제와 안 맞음, 3D 사거리 2m로 짧음) 모두 검토했으나 비용 또는 구조
+  전제 문제로 기각 — 알려진 한계로 문서화하고 위 대응으로 최대한 보완한다.
+
+### 3.5.8 Flutter 앱 기능 확장 (Tier 1~3)
+`app/lidar_mapper_app`에 MVVM(View→ViewModel(Riverpod)→Repository→
+`ros_bridge_client`) 구조로 다음을 순차 구현 예정:
+
+- **Tier 1(지금)**: DB 통신(get_sessions/log_event), 연결 설정, 수집 시작/정지
+  버튼, 기기 점검(라이다/IMU/Orange Pi 상태/배터리 추정/네트워크), 기기 제어
+  명령(리셋/DB 즉시전송), 실시간 지도/스캔 뷰어, 환경 프리셋+필터 조절 패널.
+- **Tier 2(보드 도착 후)**: 세션 관리, 세션 상태/리셋 패널, 지도 히스토리 뷰
+  (`flutter_map`/OpenStreetMap 기반, 실외 세션 GPS 핀 표시).
+- **Tier 3(나중)**: 수동 지도 보정(터치 삭제), AI 기반 자동 하드웨어 제어,
+  카메라/사물 인식 연동.
+
+---
+
 ## 4. 데이터 아키텍처
 
 | 데이터 | 형식 | 용량(추정) | 저장 위치 |
@@ -221,6 +354,29 @@ RViz2는 로컬 GUI라 폰 원격 접속이 안 되기 때문에 Phase 2에서 F
       사유는 리스크 섹션 참고)
 - [x] Orange Pi 4 Pro 구매 (2026-09-11, 배송 중)
 - [ ] 도착 후 `hardware/orange_pi_4_pro_bringup_risks.md` 절차대로 이식 (Phase 2 시작 조건)
+
+### 5.5 Phase 2 세부 페이지 (2026-09-15 확정)
+Orange Pi/IMU 도착 시점이 서로 달라서, Phase 2를 하드웨어 도착 순서에 맞춰
+3단계로 더 쪼갠다. **앱 개발은 rosbridge 프로토콜이 PC/보드 동일하다는 환경
+독립성 원칙(1번) 덕분에, 오렌지파이 도착을 기다리지 않고 지금 PC 컨테이너
+기준으로 먼저 시작한다** (Tier1 대부분이 하드웨어 무관 — 3.5.8번 참고).
+
+| 페이지 | 트리거 | 하드웨어 작업 | 앱/백엔드 작업 |
+|---|---|---|---|
+| **0 (지금, 대기 중 병행)** | 없음 | 액티브 쿨링/microSD 등 부품 준비 (아래 체크리스트) | Tier1 대부분을 PC rosbridge로 개발/검증 (연결화면, 수집 시작/정지, 지도뷰어, 필터 프리셋 등) |
+| **1. Orange Pi 도착** | 보드 수령 | 라이다 재부착 + `orange_pi_4_pro_bringup_risks.md` 절차대로 실기 기능 테스트 | 페이지0 앱 기능을 오렌지파이 주소로 재검증 |
+| **2. IMU 도착** (미구매) | IMU 모듈 수령 | IMU 부착 + 기능 테스트 + `robot_localization`(EKF) 연동 + 휴대성(장착) 테스트 | 앱 개발 계속 — 기기 점검 화면에 IMU 상태 반영 |
+| **3. 실사용 필드 테스트 단계** | 위 2단계 완료 후 | GPIO 물리 버튼 부착(0.7번) + 실내/산길 실제 도보 테스트로 라이다 필터·EKF 튜닝값 확정(0.8번) + 진화형 지도 재방문 실측(2.6번) | 백엔드 구현(DB 스키마 확장, `sync_node`) → Tier1 나머지(기기제어) + Tier2(세션관리, 지도 히스토리) 착수 |
+
+**오렌지파이 도착 전 부품 체크리스트** (`orange_pi_4_pro_bringup_risks.md` 0번에 이미
+있는 보조배터리 항목 외 추가):
+- [ ] **액티브 쿨링(팬+방열판)** — 90°C 스로틀링이 실측 확인된 리스크라 가장
+      급함, 보드 도착 직후 부하 테스트(체크리스트 6번)에 바로 필요
+- [ ] microSD 카드(32GB+, 또는 eMMC) + 카드 리더기 — OS 이미지 굽는 용도
+- [ ] (선택) 랜선 — Wi-Fi 미검증 리스크(2번)의 1순위 폴백
+- [ ] (선택) HDMI 케이블+모니터 — 헤드리스(SSH) 설정 실패 시 폴백
+- [ ] IMU 모듈(DFRobot SEN0374 추천, 페이지2용) — 아직 미구매
+- [ ] GPIO 물리 버튼 + 점퍼케이블(페이지3용) — 수천원대, 저렴
 
 ---
 
