@@ -1,0 +1,590 @@
+<title>라이다 스캔 모니터</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap">
+<style>
+  :root {
+    --bg: #141210;
+    --panel: #1c1815;
+    --panel-raised: #241f1a;
+    --line: #362f27;
+    --ink: #ece6da;
+    --ink-dim: #93897b;
+    --amber: #f0a83c;       /* 라이브 스캔(원시 포인트) */
+    --amber-dim: #7a5a2a;
+    --teal: #55b8ae;        /* 확정된 지도(누적 occupancy) */
+    --teal-dim: #2c4d49;
+    --red: #e0654a;         /* 노이즈/불규칙 장애물 */
+    --ok: #6ec97c;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); }
+  body {
+    color: var(--ink);
+    font-family: "IBM Plex Sans KR", sans-serif;
+    margin: 0;
+    padding-inline: 16px;
+    padding-block: 32px 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+  }
+  .banner {
+    max-width: 380px;
+    width: 100%;
+    font-size: 12px;
+    color: var(--ink-dim);
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    line-height: 1.5;
+  }
+  .banner b { color: var(--amber); font-weight: 600; }
+
+  .phone {
+    width: 100%;
+    max-width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    padding: 14px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.6);
+  }
+  .statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 14px;
+  }
+  .conn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .hz-badge {
+    font-family: "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--amber);
+    background: var(--panel-raised);
+    border: 1px solid var(--amber-dim);
+    border-radius: 6px;
+    padding: 3px 9px;
+  }
+  .hz-badge span { font-size: 10px; color: var(--ink-dim); font-weight: 500; margin-left: 3px; }
+
+  .scope-wrap {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 42%, #201b16 0%, #17130f 72%, #100d0a 100%);
+    border: 1px solid var(--line);
+  }
+  canvas#scope { display: block; width: 100%; height: auto; }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    padding: 10px 4px 2px;
+    font-size: 11px;
+    color: var(--ink-dim);
+    flex-wrap: wrap;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .controls .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .controls .label { font-size: 13px; }
+  .controls .sub { font-size: 11px; color: var(--ink-dim); margin-top: 2px; }
+  .hzrow input[type="range"] {
+    flex: 1;
+    accent-color: var(--amber);
+  }
+  .hzrow .val {
+    font-family: "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 12.5px;
+    color: var(--amber);
+    width: 78px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .chip-toggle {
+    font-size: 11px;
+    color: var(--ink-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .chip-toggle input { accent-color: var(--teal); }
+  .hint {
+    font-size: 11px;
+    color: var(--ink-dim);
+    background: rgba(224,101,74,0.08);
+    border: 1px dashed var(--red);
+    border-radius: 8px;
+    padding: 6px 9px;
+    display: none;
+  }
+  .hint.show { display: block; }
+  .envbtn {
+    font-size: 11.5px;
+    color: var(--ink-dim);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 11px;
+    cursor: pointer;
+  }
+  .envbtn[data-active="true"] {
+    color: var(--bg);
+    background: var(--amber);
+    border-color: var(--amber);
+    font-weight: 600;
+  }
+  .switch {
+    position: relative;
+    width: 44px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--line);
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .18s ease;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--ink-dim);
+    transition: transform .18s ease, background .18s ease;
+  }
+  .switch[aria-pressed="true"] { background: var(--red); }
+  .switch[aria-pressed="true"]::after { transform: translateX(18px); background: #fff2ec; }
+  .switch:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  .mapcard {
+    width: 100%;
+    max-width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px;
+  }
+  .mapcard h2 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 2px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mapcard .pct {
+    font-family: "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--teal);
+    font-size: 13px;
+  }
+  .mapcard p { margin: 2px 0 10px; font-size: 11.5px; color: var(--ink-dim); }
+  canvas#gridmap { display: block; width: 100%; height: auto; border-radius: 10px; background: #100d0a; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; }
+  }
+</style>
+
+<div class="banner">
+  <b>미리보기 데모</b> — 실제 rosbridge 데이터가 아니라, Flutter <code>CustomPainter</code>로
+  구현했을 때 예상되는 동작을 가짜 데이터로 재현한 시연 화면입니다.
+</div>
+
+<div class="phone">
+  <div class="statusbar">
+    <div class="conn"><span class="dot"></span>lidarmapper.local</div>
+    <div class="hz-badge" id="hzBadge">9.8<span>Hz</span></div>
+  </div>
+
+  <div class="scope-wrap">
+    <canvas id="scope" width="680" height="680"></canvas>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--amber)"></i>실시간 스캔점</span>
+    <span><i class="swatch" style="background:var(--red)"></i>불규칙 반사(탭하면 제거)</span>
+    <span><i class="swatch" style="background:var(--teal)"></i>확정된 벽</span>
+    <span><i class="swatch" style="background:rgba(240,168,60,.35);border-radius:2px"></i>빛이 지나간 자리(빈 공간 확인됨)</span>
+  </div>
+
+  <div class="controls">
+    <div class="row hzrow">
+      <div>
+        <div class="label">스캔 속도</div>
+        <div class="sub" id="hzSub">기본 9.8Hz — 슬라이더로 직접 바꿔보세요</div>
+      </div>
+    </div>
+    <div class="row hzrow">
+      <input type="range" id="hzSlider" min="8" max="20" step="0.5" value="9.8" aria-label="스캔 속도(Hz)">
+      <span class="val" id="hzVal">9.8 Hz</span>
+    </div>
+    <label class="chip-toggle">
+      <input type="checkbox" id="linkedToggle" checked>
+      샘플레이트도 같이 올리기 (끄면 빨리 돌 때 점이 듬성듬성해짐)
+    </label>
+
+    <div class="row">
+      <div>
+        <div class="label">노이즈 필터 (산발적 노이즈만)</div>
+        <div class="sub" id="filterSub">불규칙 반사점 자동 제거 중</div>
+      </div>
+      <button class="switch" id="filterToggle" role="switch" aria-pressed="true" aria-label="노이즈 필터 켜기/끄기"></button>
+    </div>
+    <div class="hint" id="tapHint">👆 저 빨간 덩어리는 구조가 있어 보여서 자동 필터가 못 잡습니다 — 직접 탭해서 지워보세요</div>
+
+    <div class="row hzrow" style="margin-top:2px">
+      <div class="label">환경</div>
+      <div style="display:flex;gap:6px">
+        <button class="envbtn" id="envIndoor" data-active="true">실내</button>
+        <button class="envbtn" id="envTrail">등산로(사람·노이즈 많음)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mapcard">
+  <h2>공간 인식 누적 지도(위에서 본 시점) <span class="pct" id="mapPct">0%</span></h2>
+  <p>기기(주황 점)가 기둥 뒤 사각지대를 걸어서 지나가야 그 뒤쪽 벽까지 채워집니다 — 제자리에서 도는 것만으론 안 채워짐.</p>
+  <canvas id="gridmap" width="680" height="420"></canvas>
+</div>
+
+<script>
+(() => {
+  // ================= 월드(가상 방 + 기둥) =================
+  // 방 크기와 기둥 위치는 월드 좌표(단위 없음, 상대값)로 정의.
+  // 아래 gridmap 캔버스가 이 월드를 그대로 위에서 내려다본 시점으로 그림.
+  const ROOM_W = 900, ROOM_H = 560;
+  const PILLAR = { x0: 520, x1: 650, y0: 160, y1: 320 }; // 기둥(장애물) — 이 뒤가 사각지대
+
+  // 기기 이동 경로(순환) — 방 안을 도는 단순한 루프
+  const PATH = [
+    { x: 120, y: 120 }, { x: 780, y: 120 }, { x: 780, y: 440 }, { x: 120, y: 440 },
+  ];
+  let pathT = 0; // 0~PATH.length 사이, 경로 위 진행도
+  const MOVE_SPEED = 0.0032; // 프레임당 진행도
+
+  function devicePos() {
+    const segF = Math.floor(pathT) % PATH.length;
+    const a = PATH[segF], b = PATH[(segF+1) % PATH.length];
+    const f = pathT - Math.floor(pathT);
+    return { x: a.x + (b.x-a.x)*f, y: a.y + (b.y-a.y)*f };
+  }
+
+  // 점 하나에서 각도 방향으로 쏜 광선이 방 벽 또는 기둥에 닿는 거리 계산 (레이캐스팅)
+  function castRay(ox, oy, angle) {
+    const dx = Math.cos(angle), dy = Math.sin(angle);
+    let best = Infinity;
+
+    // 방 경계 4면
+    const edges = [
+      dx > 0 ? (ROOM_W - ox) / dx : (dx < 0 ? (0 - ox) / dx : Infinity),
+      dy > 0 ? (ROOM_H - oy) / dy : (dy < 0 ? (0 - oy) / dy : Infinity),
+    ];
+    for (const t of edges) if (t > 0 && t < best) best = t;
+
+    // 기둥(축 정렬 사각형) — 슬랩 방식 교차 검사
+    const invdx = dx !== 0 ? 1/dx : Infinity, invdy = dy !== 0 ? 1/dy : Infinity;
+    let tminx = (PILLAR.x0 - ox) * invdx, tmaxx = (PILLAR.x1 - ox) * invdx;
+    if (tminx > tmaxx) [tminx, tmaxx] = [tmaxx, tminx];
+    let tminy = (PILLAR.y0 - oy) * invdy, tmaxy = (PILLAR.y1 - oy) * invdy;
+    if (tminy > tmaxy) [tminy, tmaxy] = [tmaxy, tminy];
+    const tmin = Math.max(tminx, tminy), tmax = Math.min(tmaxx, tmaxy);
+    if (tmin <= tmax && tmin > 0 && tmin < best) best = tmin;
+
+    return best;
+  }
+
+  // ================= 레이더(로컬 뷰) =================
+  const scope = document.getElementById('scope');
+  const sctx = scope.getContext('2d');
+  const W = scope.width, H = scope.height, CX = W/2, CY = H/2, R = W/2 - 24;
+  const MAX_RANGE = 260; // 월드 단위 — 이 이상은 화면 밖(스캔 안 잡힘)
+  const worldToPx = R / MAX_RANGE;
+
+  let sweep = 0;
+  const trail = []; // {angle, dist, isNoise, age, clusterId, isPerson}
+  const noiseFiltered = { on: true };
+  let hz = 9.8, linked = true;
+  let clusterSeq = 0;
+  let clusterCooldown = 90;
+  let env = 'indoor'; // 'indoor' | 'trail'
+  let personCooldown = 200;
+
+  const ENV = {
+    indoor: { scatterProb: 0.05, clusterMin: 260, clusterMax: 420, personMin: 999999, personMax: 999999 },
+    trail:  { scatterProb: 0.24, clusterMin: 90,  clusterMax: 180, personMin: 140,    personMax: 260    },
+  };
+
+  function step() {
+    const speedFactor = hz / 9.8;
+    sweep += 0.11 * speedFactor;           // 회전 자체는 Hz에 비례해 항상 빨라짐
+    if (sweep > Math.PI * 2) sweep -= Math.PI * 2;
+    pathT += MOVE_SPEED;
+
+    const dp = devicePos();
+
+    // 샘플레이트를 안 올리면, Hz가 높을수록 이번 프레임 포인트를 건너뛸 확률이 커짐 → 듬성듬성
+    const skipProb = linked ? 0 : Math.max(0, (hz - 9.8) / 9.8 * 0.65);
+    if (Math.random() >= skipProb) {
+      const dist = castRay(dp.x, dp.y, sweep) * (0.985 + Math.random()*0.03);
+      if (dist < MAX_RANGE) {
+        trail.push({ angle: sweep, dist, isNoise: false, age: 0 });
+        // 벽 셀 신뢰도 누적(진짜 히트만, 범위 안일 때만)
+        markConfidence(dp.x + Math.cos(sweep)*dist, dp.y + Math.sin(sweep)*dist);
+      }
+    }
+
+    const cfg = ENV[env];
+
+    // 산발적 노이즈(자동 필터 대상) — 등산로에서는 훨씬 잦음(나뭇잎/역광 등)
+    if (Math.random() < cfg.scatterProb) {
+      trail.push({
+        angle: sweep + (Math.random()-0.5)*0.2,
+        dist: MAX_RANGE * (0.15 + Math.random()*0.5),
+        isNoise: true, age: 0,
+      });
+    }
+
+    // 가끔 "진짜 벽처럼 보이는" 반사 노이즈 덩어리 생성(탭으로 지울 수 있게)
+    clusterCooldown -= 1;
+    if (clusterCooldown <= 0) {
+      clusterCooldown = cfg.clusterMin + Math.random()*(cfg.clusterMax - cfg.clusterMin);
+      const cid = ++clusterSeq;
+      const baseAngle = Math.random() * Math.PI * 2;
+      const baseDist = MAX_RANGE * (0.35 + Math.random()*0.3);
+      for (let i=0;i<10;i++){
+        trail.push({
+          angle: baseAngle + (i-5)*0.028,
+          dist: baseDist + (Math.random()-0.5)*8,
+          isNoise: true, age: 0, clusterId: cid,
+        });
+      }
+    }
+
+    // 지나가는 사람(등산로 전용) — 잠깐 나타났다 사라지는 덩어리, 지도엔 안 남음
+    personCooldown -= 1;
+    if (personCooldown <= 0) {
+      personCooldown = cfg.personMin + Math.random()*(cfg.personMax - cfg.personMin);
+      const cid = ++clusterSeq;
+      const baseAngle = Math.random() * Math.PI * 2;
+      const baseDist = MAX_RANGE * (0.2 + Math.random()*0.25);
+      for (let i=0;i<6;i++){
+        trail.push({
+          angle: baseAngle + (i-3)*0.05,
+          dist: baseDist + (Math.random()-0.5)*6,
+          isNoise: true, age: 0, clusterId: cid, isPerson: true,
+        });
+      }
+    }
+
+    for (const p of trail) p.age += 1;
+    // 지나가는 사람은 금방 사라짐(짧은 age 한계), 나머지는 기존대로
+    for (let i = trail.length - 1; i >= 0; i--) {
+      const limit = trail[i].isPerson ? 40 : 150;
+      if (trail[i].age > limit) trail.splice(i, 1);
+    }
+
+    document.getElementById('hzBadge').innerHTML = hz.toFixed(1) + '<span>Hz</span>';
+    document.getElementById('tapHint').classList.toggle('show', trail.some(p => p.isNoise && p.age < 150));
+
+    draw(dp);
+    requestAnimationFrame(step);
+  }
+
+  function draw(dp) {
+    sctx.clearRect(0,0,W,H);
+
+    sctx.strokeStyle = 'rgba(147,137,123,0.12)';
+    sctx.lineWidth = 1;
+    for (let i=1;i<=3;i++){ sctx.beginPath(); sctx.arc(CX,CY, R*i/3, 0, Math.PI*2); sctx.stroke(); }
+    sctx.beginPath();
+    sctx.moveTo(CX-R,CY); sctx.lineTo(CX+R,CY);
+    sctx.moveTo(CX,CY-R); sctx.lineTo(CX,CY+R);
+    sctx.stroke();
+
+    // 광선이 지나간 자리(빈 공간) — 여러 삼각형을 겹쳐 그리면 중심부에 알파가
+    // 누적되어 새하얗게 떠버리므로(스윕 라인을 가림), 각도 순서대로 이어진
+    // "부채 폴리곤" 하나로 합쳐서 딱 한 번만 채운다. 각도가 확 튀는 지점
+    // (한 바퀴 넘어간 경계)에서는 새 폴리곤으로 끊어서 이상한 연결을 방지.
+    sctx.fillStyle = 'rgba(240,168,60,0.09)';
+    let segStart = 0;
+    const realPts = trail.filter(p => !p.isNoise);
+    for (let i = 1; i <= realPts.length; i++) {
+      const wrapped = i === realPts.length || Math.abs(realPts[i].angle - realPts[i-1].angle) > 1;
+      if (wrapped) {
+        const seg = realPts.slice(segStart, i);
+        if (seg.length >= 2) {
+          sctx.beginPath();
+          sctx.moveTo(CX, CY);
+          for (const p of seg) {
+            sctx.lineTo(CX + Math.cos(p.angle)*p.dist*worldToPx, CY + Math.sin(p.angle)*p.dist*worldToPx);
+          }
+          sctx.closePath();
+          sctx.fill();
+        }
+        segStart = i;
+      }
+    }
+
+    // 스윕 라인
+    const grad = sctx.createLinearGradient(CX,CY, CX+Math.cos(sweep)*R, CY+Math.sin(sweep)*R);
+    grad.addColorStop(0, 'rgba(240,168,60,0.55)');
+    grad.addColorStop(1, 'rgba(240,168,60,0)');
+    sctx.strokeStyle = grad;
+    sctx.lineWidth = 3;
+    sctx.beginPath(); sctx.moveTo(CX,CY); sctx.lineTo(CX+Math.cos(sweep)*R, CY+Math.sin(sweep)*R); sctx.stroke();
+
+    // 포인트 — 산발적 노이즈(clusterId 없음)는 자동 필터 대상, 벽처럼 보이는
+    // 덩어리(clusterId 있음)는 구조가 있어 보여서 자동 필터가 못 걸러내므로
+    // 필터 on/off와 무관하게 항상 표시 → 탭으로만 지울 수 있게
+    for (const p of trail) {
+      if (p.isNoise && !p.clusterId && noiseFiltered.on) continue;
+      const fade = 1 - p.age/150;
+      const x = CX + Math.cos(p.angle)*p.dist*worldToPx;
+      const y = CY + Math.sin(p.angle)*p.dist*worldToPx;
+      sctx.beginPath();
+      sctx.fillStyle = p.isNoise ? `rgba(224,101,74,${0.85*fade})` : `rgba(240,168,60,${0.9*fade})`;
+      sctx.arc(x,y, p.isNoise ? 4.5 : 3, 0, Math.PI*2);
+      sctx.fill();
+    }
+
+    sctx.fillStyle = '#ece6da';
+    sctx.beginPath(); sctx.arc(CX,CY,4,0,Math.PI*2); sctx.fill();
+  }
+
+  document.getElementById('filterToggle').addEventListener('click', (e) => {
+    noiseFiltered.on = !noiseFiltered.on;
+    e.currentTarget.setAttribute('aria-pressed', String(noiseFiltered.on));
+    document.getElementById('filterSub').textContent = noiseFiltered.on
+      ? '불규칙 반사점 자동 제거 중' : '필터 꺼짐 — 노이즈 그대로 표시';
+  });
+
+  const hzSlider = document.getElementById('hzSlider');
+  hzSlider.addEventListener('input', () => {
+    hz = parseFloat(hzSlider.value);
+    document.getElementById('hzVal').textContent = hz.toFixed(1) + ' Hz';
+    document.getElementById('hzSub').textContent = linked
+      ? '회전이 빨라진 만큼 측정도 더 자주 해서 밀도 유지'
+      : '회전만 빨라지고 측정 횟수는 그대로 — 점 사이 간격이 벌어짐';
+  });
+  document.getElementById('linkedToggle').addEventListener('change', (e) => {
+    linked = e.target.checked;
+    hzSlider.dispatchEvent(new Event('input'));
+  });
+
+  const envIndoor = document.getElementById('envIndoor'), envTrail = document.getElementById('envTrail');
+  function setEnv(next) {
+    env = next;
+    envIndoor.dataset.active = String(env === 'indoor');
+    envTrail.dataset.active = String(env === 'trail');
+    clusterCooldown = Math.min(clusterCooldown, 60);
+    personCooldown = env === 'trail' ? Math.min(personCooldown, 60) : 999999;
+  }
+  envIndoor.addEventListener('click', () => setEnv('indoor'));
+  envTrail.addEventListener('click', () => setEnv('trail'));
+
+  // 탭/클릭으로 노이즈 덩어리 제거 (flood-fill 삭제 기능의 축소 시연)
+  scope.addEventListener('click', (e) => {
+    const rect = scope.getBoundingClientRect();
+    const scale = scope.width / rect.width;
+    const mx = (e.clientX - rect.left) * scale, my = (e.clientY - rect.top) * scale;
+    let hitCluster = null, bestD = 26; // 히트 판정 반경(px)
+    for (const p of trail) {
+      if (!p.isNoise) continue;
+      const x = CX + Math.cos(p.angle)*p.dist*worldToPx;
+      const y = CY + Math.sin(p.angle)*p.dist*worldToPx;
+      const d = Math.hypot(x-mx, y-my);
+      if (d < bestD) { bestD = d; hitCluster = p.clusterId; }
+    }
+    if (hitCluster != null) {
+      for (let i = trail.length - 1; i >= 0; i--) if (trail[i].clusterId === hitCluster) trail.splice(i,1);
+    }
+  });
+
+  step();
+
+  // ================= 누적 지도(월드 고정 시점) =================
+  const gridCanvas = document.getElementById('gridmap');
+  const gctx = gridCanvas.getContext('2d');
+  const GW = gridCanvas.width, GH = gridCanvas.height;
+  const cell = 8;
+  const cols = Math.ceil(GW/cell), rows = Math.ceil(GH/cell);
+  const conf = new Float32Array(cols*rows);
+  const sx = GW/ROOM_W, sy = GH/ROOM_H;
+  const devicePath = [];
+
+  function markConfidence(wx, wy) {
+    const cx = Math.floor(wx*sx/cell), cy = Math.floor(wy*sy/cell);
+    if (cx<0||cy<0||cx>=cols||cy>=rows) return;
+    const i = cy*cols+cx;
+    conf[i] = Math.min(1, conf[i] + 0.22);
+  }
+
+  function drawMap() {
+    const dp = devicePos();
+    devicePath.push({x:dp.x, y:dp.y});
+    if (devicePath.length > 400) devicePath.shift();
+
+    gctx.clearRect(0,0,GW,GH);
+
+    // 기둥(항상 보이는 실제 구조물 — 참고용 윤곽선만, 지도가 "확정"하기 전엔 흐리게)
+    gctx.strokeStyle = 'rgba(147,137,123,0.35)';
+    gctx.setLineDash([4,3]);
+    gctx.strokeRect(PILLAR.x0*sx, PILLAR.y0*sy, (PILLAR.x1-PILLAR.x0)*sx, (PILLAR.y1-PILLAR.y0)*sy);
+    gctx.setLineDash([]);
+
+    let filled = 0, total = cols*rows;
+    for (let y=0;y<rows;y++){
+      for (let x=0;x<cols;x++){
+        const c = conf[y*cols+x];
+        if (c > 0.5) filled++;
+        if (c <= 0.03) continue;
+        gctx.fillStyle = `rgba(85,184,174,${Math.min(0.95,c)})`;
+        gctx.fillRect(x*cell, y*cell, cell-1, cell-1);
+      }
+    }
+    document.getElementById('mapPct').textContent = Math.round(filled/total*100) + '%';
+
+    // 이동 경로
+    gctx.strokeStyle = 'rgba(240,168,60,0.4)';
+    gctx.lineWidth = 1.5;
+    gctx.beginPath();
+    devicePath.forEach((p,i) => { const px=p.x*sx, py=p.y*sy; i===0?gctx.moveTo(px,py):gctx.lineTo(px,py); });
+    gctx.stroke();
+
+    // 기기 현재 위치
+    gctx.fillStyle = '#f0a83c';
+    gctx.beginPath(); gctx.arc(dp.x*sx, dp.y*sy, 5, 0, Math.PI*2); gctx.fill();
+
+    requestAnimationFrame(drawMap);
+  }
+  drawMap();
+})();
+</script>

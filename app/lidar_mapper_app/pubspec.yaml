@@ -35,6 +35,11 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  flutter_riverpod: ^2.6.1        # 상태관리 (MVVM의 ViewModel 계층)
+  riverpod_annotation: ^2.6.1     # @riverpod 코드생성 어노테이션
+  go_router: ^14.6.2              # 화면 네비게이션
+  web_socket_channel: ^3.0.1      # rosbridge WebSocket 통신
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,6 +50,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  build_runner: ^2.4.13           # 코드 생성 실행기
+  riverpod_generator: ^2.6.3      # @riverpod → 실제 코드 생성
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
