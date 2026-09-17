@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'features/connection/connection_screen.dart';
+import 'core/router.dart';
 
 void main() {
   // ProviderScope: 앱 전체에서 Riverpod provider들을 사용할 수 있게 감싸는 루트 위젯.
@@ -13,10 +13,10 @@ class LidarMapperApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'LiDAR Mapper',
       theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange)),
-      home: const ConnectionScreen(),
+      routerConfig: appRouter,
     );
   }
 }

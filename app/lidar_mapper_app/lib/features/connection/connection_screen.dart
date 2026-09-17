@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'connection_viewmodel.dart';
 
@@ -25,6 +26,13 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
   Widget build(BuildContext context) {
     final connectionState = ref.watch(connectionViewModelProvider);
     final viewModel = ref.read(connectionViewModelProvider.notifier);
+
+    // 연결 성공 상태가 되는 순간 메인 셸(홈 탭)으로 자동 이동.
+    ref.listen(connectionViewModelProvider, (previous, next) {
+      if (next.status == ConnectionStatus.connected) {
+        context.go('/home');
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: const Text('연결 설정')),
