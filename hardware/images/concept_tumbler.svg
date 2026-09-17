@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 420" role="img" aria-label="원통형 대신 몸쪽은 납작하고 바깥쪽은 둥근 웨지 단면 케이스, 상단에 원형 라이다 디스크, 중단에 보드, 하단에 배터리를 배치한 측면도">
+  <rect width="400" height="420" fill="#f3efe4"/>
+  <path d="M 200 60 C 260 70, 290 140, 280 220 C 275 300, 250 360, 210 390 L 190 390 C 150 360, 125 300, 120 220 C 110 140, 140 70, 200 60 Z"
+        fill="#ece3fb" stroke="#7a3fd1" stroke-width="1.8"/>
+  <ellipse cx="200" cy="55" rx="55" ry="14" fill="none" stroke="#a9701f" stroke-width="1.8"/>
+  <circle cx="200" cy="55" r="4" fill="#a9701f"/>
+  <text x="200" y="30" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="600" fill="#1c2530">라이다(360° 유지, 원형)</text>
+  <rect x="150" y="150" width="100" height="70" rx="4" fill="none" stroke="#4c5866" stroke-width="1.3" stroke-dasharray="3 3"/>
+  <text x="200" y="190" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#4c5866">Orange Pi</text>
+  <rect x="150" y="260" width="100" height="90" rx="4" fill="none" stroke="#4c5866" stroke-width="1.3" stroke-dasharray="3 3"/>
+  <text x="200" y="308" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#4c5866">보조배터리</text>
+  <text x="110" y="220" text-anchor="end" font-family="monospace" font-size="10.5" fill="#4c5866" transform="rotate(-90 110 220)">몸쪽(납작)</text>
+  <text x="292" y="220" text-anchor="start" font-family="monospace" font-size="10.5" fill="#4c5866" transform="rotate(90 292 220)">바깥쪽(둥긂)</text>
+</svg>

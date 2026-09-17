@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 260" role="img" aria-label="가방 상단의 기존 캐리 핸들에 슬롯이 뚫린 판을 끼워서 별도 고정장치 없이 얹는 방식 그림, 이후 GoPro 규격 커넥터 방식으로 발전됨">
+  <rect width="320" height="260" fill="#f3efe4"/>
+  <path d="M 60 180 C 60 160, 100 150, 160 150 C 220 150, 260 160, 260 180 L 250 220 L 70 220 Z"
+        fill="none" stroke="#b9ae95" stroke-width="1.5"/>
+  <text x="160" y="240" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#4c5866">가방 상단면 / 어깨끈</text>
+  <path d="M 130 150 C 130 120, 190 120, 190 150" fill="none" stroke="#4c5866" stroke-width="4" stroke-linecap="round"/>
+  <text x="160" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#4c5866">캐리 핸들 / GoPro 버클 마운트</text>
+  <rect x="120" y="128" width="80" height="20" rx="4" fill="#ece3fb" stroke="#7a3fd1" stroke-width="2"/>
+  <rect x="135" y="132" width="50" height="8" rx="3" fill="none" stroke="#7a3fd1" stroke-width="1.3"/>
+  <text x="255" y="135" text-anchor="start" font-family="sans-serif" font-size="11" font-weight="600" fill="#7a3fd1">브라켓(관통/GoPro 탭)</text>
+  <rect x="135" y="108" width="50" height="18" rx="3" fill="#ece3fb" stroke="#7a3fd1" stroke-width="1.8"/>
+  <ellipse cx="160" cy="106" rx="22" ry="6" fill="none" stroke="#a9701f" stroke-width="1.8"/>
+  <text x="160" y="85" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#1c2530">라이다+IMU 판</text>
+</svg>

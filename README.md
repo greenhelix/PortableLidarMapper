@@ -1,6 +1,6 @@
 # Portable LiDAR Mapper
 
-> 텀블러형 케이스에 RPLIDAR C1 + Orange Pi 4 Pro를 넣고 들고 다니며 실내 2D 지도(로봇청소기 수준)와 실외 GPS 경로를 기록하는 개인용 프로젝트.
+> RPLIDAR C1 + Orange Pi 4 Pro + IMU를 백팩 어깨끈에 마운트하고 다니며 실내 2D 지도(로봇청소기 수준)와 실외 GPS 경로를 기록하는 개인용 프로젝트. (초기엔 텀블러형 케이스 구상이었으나 2026-09-16 어깨끈 마운트 방식으로 방향 전환 — 하단 폼팩터 히스토리 참고)
 
 **현재 단계: Phase 1 — PC + 고정 공간에서 SLAM 파라미터 품질 검증 중** (보드 미도착, `docker/` 환경으로 PC에서 선개발).
 상세 아키텍처/로드맵은 [`README_ARCHITECTURE.md`](./README_ARCHITECTURE.md), 세션별 작업 기록은 [`devlog/`](./devlog)를 참고.
@@ -119,7 +119,46 @@ ros2 launch lidar_mapper_bringup bringup.launch.py use_mock:=false lidar_serial_
 |---|---|
 | 센서 | RPLIDAR C1 |
 | 보드 | Orange Pi 4 Pro 4GB (Allwinner A733) — **구매 완료(배송 중, 2026-09-11)**, 상세는 [`hardware/board_price_tracking.md`](./hardware/board_price_tracking.md) |
-| 폼팩터 | 텀블러형 케이스, 백팩 측면 휴대 |
+| 폼팩터 | **백팩 어깨끈 마운트**(GoPro 표준 커넥터 방식) — 라이다+IMU 판은 어깨끈에, Orange Pi+배터리는 가방 내부에. 2026-09-16 확정, 상세는 아래 폼팩터 히스토리 참고 |
+
+### 폼팩터 검토 히스토리 (텀블러 → 어깨끈 마운트)
+
+<details>
+<summary><b>펼쳐서 전체 히스토리 보기</b> (스케치, 개념도, 검토 순서)</summary>
+
+처음엔 **텀블러형 케이스**(라이다+보드+배터리를 원통 하나에 전부 내장, 백팩 옆주머니에 삽입)로 시작했으나, 몸/가방에 의한 가림각 문제와 특정 가방 치수 종속 문제 때문에 **어깨끈 마운트 분리형**(가벼운 센서 헤드만 어깨끈에, 무거운 보드+배터리는 가방 내부에)으로 방향을 바꿨습니다. 텀블러 개념 자체는 폐기하지 않고 계속 참고 자료로 남겨뒀습니다.
+
+**1. 텀블러형 (초기 개념)**
+
+![텀블러형 케이스 개념도](./hardware/images/concept_tumbler.svg)
+
+라이다(위)-Orange Pi-배터리(아래) 순으로 원통 하나에 쌓는 구조. [상세 CAD](./hardware/cad/tumbler_shell_v2.scad) · [사용자 스케치 3](./hardware/images/sketch_3_tumbler_shell.jpg) · [사용자 스케치 4(정리본)](./hardware/images/sketch_4_tumbler_shell_refined.jpg)
+
+**2. 중간 검토 — 어깨끈 분리형 여러 방식 비교**
+
+![어깨끈 마운트 개념도](./hardware/images/concept_strap_mount.svg)
+
+가방 손잡이 관통형, 벨크로 클램프형, 목뒤 끈 수렴점형 등을 비교 검토. [전체 비교 아티팩트](https://claude.ai/code/artifact/8a0e3fea-5cf3-4b3d-bbbd-aff2ba56d551) · [사용자 스케치 1(마운트판)](./hardware/images/sketch_1_lidar_mount_plate.jpg) · [사용자 스케치 2(어깨끈 변형들)](./hardware/images/sketch_2_strap_mount_variants.jpg)
+
+**3. 최종 — GoPro 표준 커넥터 방식 (2026-09-16 확정)**
+
+시중 GoPro 호환 어깨끈 마운트(볼조인트 없는 평버클+관통볼트 방식)를 구매해서 사용, 우리는 그 규격에 맞는 라이다+IMU 판만 제작. [상세 CAD](./hardware/cad/mount_plate_and_case_v1.scad)
+
+구매한 실제 상용 마운트(360° 호환 표기 제품, 실제로는 평버클+관통볼트 방식):
+
+<img src="./hardware/images/mount-sample1.png" width="320" alt="구매한 GoPro 호환 어깨끈 마운트 제품 사진">
+
+Shapr3D로 직접 설계한 라이다+IMU 판 (판 2장 사이 샌드위치 구조 + GoPro 커넥터):
+
+<img src="./hardware/images/print-sample4.png" width="420" alt="Shapr3D로 설계한 최종 마운트 판 렌더링">
+
+가방에 장착했을 때 예상되는 모습(렌더링 목업):
+
+<img src="./hardware/images/sample-bag1.webp" width="420" alt="어깨끈에 장착된 최종 목업 렌더링">
+
+> 더 많은 각도/중간 검토 단계 사진(`mount-sample2,3`, `print-sample1~5`, `sample-bag2` 등)은 `hardware/images/` 폴더에 전부 보관되어 있습니다.
+
+</details>
 
 ## 저장소 구조
 
