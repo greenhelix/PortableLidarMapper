@@ -121,6 +121,15 @@ ros2 launch lidar_mapper_bringup bringup.launch.py use_mock:=false lidar_serial_
 | 보드 | Orange Pi 4 Pro 4GB (Allwinner A733) — **구매 완료(배송 중, 2026-09-11)**, 상세는 [`hardware/board_price_tracking.md`](./hardware/board_price_tracking.md) |
 | 폼팩터 | **백팩 어깨끈 마운트**(GoPro 표준 커넥터 방식) — 라이다+IMU 판은 어깨끈에, Orange Pi+배터리는 가방 내부에. 2026-09-16 확정, 상세는 아래 폼팩터 히스토리 참고 |
 
+**완성 예상 컨셉 (렌더링 목업)**:
+
+<table>
+<tr>
+<td><img src="./hardware/images/sample-bag1.webp" width="380" alt="어깨끈에 장착된 최종 목업 렌더링 — 근접"></td>
+<td><img src="./hardware/images/sample-bag2.webp" width="380" alt="어깨끈에 장착된 최종 목업 렌더링 — 전체"></td>
+</tr>
+</table>
+
 ### 폼팩터 검토 히스토리 (텀블러 → 어깨끈 마운트)
 
 <details>
@@ -130,15 +139,21 @@ ros2 launch lidar_mapper_bringup bringup.launch.py use_mock:=false lidar_serial_
 
 **1. 텀블러형 (초기 개념)**
 
-![텀블러형 케이스 개념도](./hardware/images/concept_tumbler.svg)
+<img src="./hardware/images/concept_tumbler.svg" width="260" alt="텀블러형 케이스 개념도">
 
-라이다(위)-Orange Pi-배터리(아래) 순으로 원통 하나에 쌓는 구조. [상세 CAD](./hardware/cad/tumbler_shell_v2.scad) · [사용자 스케치 3](./hardware/images/sketch_3_tumbler_shell.jpg) · [사용자 스케치 4(정리본)](./hardware/images/sketch_4_tumbler_shell_refined.jpg)
+라이다(위)-Orange Pi-배터리(아래) 순으로 원통 하나에 쌓는 구조. [상세 CAD](./hardware/cad/tumbler_shell_v2.scad)
+
+사용자 스케치:
+<img src="./hardware/images/sketch_3_tumbler_shell.jpg" width="160" alt="사용자 스케치 3"> <img src="./hardware/images/sketch_4_tumbler_shell_refined.jpg" width="160" alt="사용자 스케치 4(정리본)">
 
 **2. 중간 검토 — 어깨끈 분리형 여러 방식 비교**
 
-![어깨끈 마운트 개념도](./hardware/images/concept_strap_mount.svg)
+<img src="./hardware/images/concept_strap_mount.svg" width="260" alt="어깨끈 마운트 개념도">
 
-가방 손잡이 관통형, 벨크로 클램프형, 목뒤 끈 수렴점형 등을 비교 검토. [전체 비교 아티팩트](https://claude.ai/code/artifact/8a0e3fea-5cf3-4b3d-bbbd-aff2ba56d551) · [사용자 스케치 1(마운트판)](./hardware/images/sketch_1_lidar_mount_plate.jpg) · [사용자 스케치 2(어깨끈 변형들)](./hardware/images/sketch_2_strap_mount_variants.jpg)
+가방 손잡이 관통형, 벨크로 클램프형, 목뒤 끈 수렴점형 등을 비교 검토. [전체 비교 아티팩트](https://claude.ai/code/artifact/8a0e3fea-5cf3-4b3d-bbbd-aff2ba56d551)
+
+사용자 스케치:
+<img src="./hardware/images/sketch_1_lidar_mount_plate.jpg" width="160" alt="사용자 스케치 1(마운트판)"> <img src="./hardware/images/sketch_2_strap_mount_variants.jpg" width="160" alt="사용자 스케치 2(어깨끈 변형들)">
 
 **3. 최종 — GoPro 표준 커넥터 방식 (2026-09-16 확정)**
 
@@ -152,11 +167,9 @@ Shapr3D로 직접 설계한 라이다+IMU 판 (판 2장 사이 샌드위치 구�
 
 <img src="./hardware/images/print-sample4.png" width="420" alt="Shapr3D로 설계한 최종 마운트 판 렌더링">
 
-가방에 장착했을 때 예상되는 모습(렌더링 목업):
+가방 장착 목업은 위 "완성 예상 컨셉" 참고.
 
-<img src="./hardware/images/sample-bag1.webp" width="420" alt="어깨끈에 장착된 최종 목업 렌더링">
-
-> 더 많은 각도/중간 검토 단계 사진(`mount-sample2,3`, `print-sample1~5`, `sample-bag2` 등)은 `hardware/images/` 폴더에 전부 보관되어 있습니다.
+> 더 많은 각도/중간 검토 단계 사진(`mount-sample2,3`, `print-sample1~5` 등)은 `hardware/images/` 폴더에 전부 보관되어 있습니다.
 
 </details>
 
