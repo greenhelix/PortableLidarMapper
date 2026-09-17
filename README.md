@@ -79,6 +79,20 @@ Phase 2(보드 도착 후 실사용)를 대비해 앱/백엔드 확장 구조를
 - **진화형 지도 축적**: 같은 장소를 여러 번 방문해도 slam_toolbox의 `serialize_map`/`deserialize_map`으로 이전 지도에 이어서 매핑 — 재방문 데이터를 중복이 아니라 완성도를 높이는 히스토리로 누적.
 - **라이다 한계 극복 전략**: 텀블러+가방 옆주머니 장착 특성상 생기는 가림각·회전오차·도보속도 문제를 `laser_filters`(ROS2 표준 필터 체인) + `robot_localization`(EKF 센서퓨전)으로 대응. [EKF 원리 그림](https://claude.ai/code/artifact/56d51d00-6c3a-4580-b798-53d9f7a12807)
 
+### Flutter 앱 개발 진행 중 (2026-09-17~)
+`app/lidar_mapper_app`에서 Tier1 기능부터 구현 시작. 연결 화면(rosbridge)은 코드
+작성 완료, 나머지는 진행 중.
+
+- **스캔/노이즈필터/누적지도 화면 데모 컨셉**: [인터랙티브 프리뷰](https://claude.ai/code/artifact/596148a7-35da-4410-bd0f-bc0dce5fa559)
+  (원본 백업: [`app/lidar_mapper_app/demo/scan_monitor_preview.html`](./app/lidar_mapper_app/demo/scan_monitor_preview.html),
+  링크는 비공개 상태 — 공유하려면 아티팩트 페이지에서 직접 "공유" 켤 것) —
+  실제 데이터 대신 가짜 데이터로 Flutter `CustomPainter` 구현 시 예상되는 동작을
+  미리 시연(Hz 슬라이더로 스캔속도-해상도 트레이드오프 확인, 벽처럼 보이는
+  반사 노이즈를 탭으로 제거, 등산로/실내 환경 전환, 기기 이동에 따른 사각지대
+  해소까지 재현).
+- **앱 네비게이션 구조(하단 탭 4개: 홈/트래킹/목록/설정)**: 상세는
+  [`README_ARCHITECTURE.md`](./README_ARCHITECTURE.md) 3.5.9번.
+
 ## 빠른 시작 (Docker)
 
 ```bash

@@ -22,13 +22,27 @@ slam_toolbox의 Ceres 솔버 연산이 정확히 그런 지속적 CPU 부하다.
   ([PR #9967](https://github.com/armbian/build/pull/9967), 2026년 기준 진행 중).
 - 대신 서드파티 커뮤니티 이미지가 있음: [jonas5/orangepi-4pro-armbian](https://github.com/jonas5/orangepi-4pro-armbian)
   (Allwinner A733/sun60iw2용 Armbian 이미지, mainline 커널 기반).
-- Orange Pi 벤더 자체 공식 이미지도 별도로 존재할 것으로 예상(구매 페이지에서 확인 필요).
+- **✅ 확정 (2026-09-16, 공식 User Manual v1.4 확인)**: Orange Pi 벤더 자체 공식
+  이미지가 실제로 존재하며 **Ubuntu, Debian, Android13을 공식 지원**한다
+  (`hardware/datasheets/orange_pi_4_pro_user_manual_v1.4.pdf` 1.4절). ROS2
+  Humble이 요구하는 **Ubuntu 22.04(Jammy)** 이미지도 공식 지원 목록에 있음
+  (매뉴얼 3.30.2절 "Ubuntu Jammy system" 테스트 섹션 존재로 확인) — **라즈베리파이
+  전용 OS 이미지는 이 보드에서 아예 부팅 안 됨(부트로더/커널 불일치), 반드시
+  orangepi.net에서 이 보드 전용으로 빌드된 이미지를 받을 것.**
 - **의미**: 라즈베리파이처럼 "공식 이미지 굽고 바로 씀" 수준의 매끄러움은 기대하기
-  어려움. 이미지 선택(벤더 공식 vs 커뮤니티 Armbian)과 세팅에 추가 시간이 들 것으로 예상.
+  어려울 수 있으나, 벤더 공식 Ubuntu Jammy 이미지가 있다는 게 확인됐으니 커뮤니티
+  Armbian 이미지에 의존할 필요는 없어짐(1순위: 벤더 공식, 2순위: Armbian).
 - **다행인 점**: 우리 아키텍처는 애초에 Docker 기반이라, 호스트가 정확히 Ubuntu든
-  Debian(Armbian 기본은 Debian Trixie)이든 상관없다 — **호스트 커널이 Docker/overlayfs/cgroup을
+  Debian이든 상관없다 — **호스트 커널이 Docker/overlayfs/cgroup을
   지원하기만 하면 ROS2/slam_toolbox는 전부 컨테이너 안에서 그대로 동작**한다.
   이게 애초에 이 프로젝트를 Docker로 설계한 이유이고, 보드 교체 리스크를 크게 줄여준다.
+
+### 🟢 부팅 매체 — microSD 필수 (USB 부팅 불가, 2026-09-16 확인)
+공식 매뉴얼 기준 지원 부팅 매체는 **microSD / eMMC(별도 모듈) / M.2 NVMe SSD**
+3가지뿐 — 일반 USB 부팅(라이브 스틱 등)은 지원 안 함. USB 포트는 OS 설치와
+무관하고 PC↔보드 간 eMMC 굽기/adb 디버깅 용도로만 쓰인다. eMMC/NVMe 모듈을
+따로 사지 않은 지금 상태에선 **microSD가 사실상 필수** — SanDisk 32GB 구매
+완료(`hardware/accessories_purchase_log.md`).
 
 ## 1.5 전원 — 오히려 유리한 점 (2026-09-08 확인)
 스펙상 **USB-C, 5V/3A(15W)** 입력. 사용자가 "보조배터리로 되냐"고 물어봐서 확인함:
@@ -108,30 +122,63 @@ cd PortableLidarMapper
 제공하므로, **`docker build` 명령 자체는 코드 수정 없이 그대로 실행되는 게
 정상**이다. 여기서 에러가 나면 그게 이 이식 과정의 핵심 검증 실패 지점.
 
-### 5.5 GPIO/I2C 활성화 (향후 IMU용, 지금 당장은 불필요)
-Armbian 계열은 보통 `armbian-config` → System → Hardware 메뉴에서 I2C/SPI overlay를
-켜거나, `/boot/orangepiEnv.txt`(또는 동급 설정 파일)에 `overlays=i2c0` 같은 줄을
-추가하는 방식이다. **정확한 GPIO 핀 번호/오버레이 이름은 보드 실물의 핀아웃
-문서를 봐야 확정** — 지금은 추측하지 않고, 도착 후 벤더 핀아웃 문서로 채울 것.
+### 5.5 GPIO/I2C 핀맵 — 확정됨 (2026-09-16, 공식 User Manual v1.4 확인)
+`hardware/datasheets/orange_pi_4_pro_user_manual_v1.4.pdf` 3.15절("40 Pin
+Interface Pin Description")에서 확인:
 
-### 5.6 발열 모니터링
+- 40핀 중 **GPIO 28개 사용 가능, 전부 3.3V 로직**(5V 아님 — IMU/버튼 배선 시
+  반드시 3.3V 핀에서 전원을 따야 함, 5V 핀에 물리면 레벨 미스매치 위험)
+- **I2C0**: SDA = 물리핀 3번, SCL = 물리핀 5번 — IMU(BNO055/CJMCU-055) 연결에
+  바로 사용
+- **여유 GPIO(버튼용 후보)**: PD0(29번), PD1(31번), PD2(33번), PD3(35번),
+  PD4(37번) 등 다수 — 0.7번(물리 시작/정지 버튼) 배선 시 이 중 하나 사용
+- **wiringOP가 이미지에 사전 설치되어 있음** — 별도 컴파일 없이 `gpio readall`
+  명령으로 바로 핀 상태 확인 가능
+- I2C/SPI 커널 오버레이 활성화 여부는 `gpio readall` 결과로 판단(이미 활성화된
+  상태로 보임, wiringOP 프리인스톨 자체가 그 근거) — 실기 도착 후 실제 명령
+  실행으로 최종 확인
+
+### 5.6 발열 모니터링 — 공식 명령 확인됨 (2026-09-16, User Manual 3.14절)
+A733에 온도 센서 5개 내장, 공식 확인된 명령:
 ```bash
-# Armbian
-armbianmonitor -m
-# 또는 범용
-watch -n1 cat /sys/class/thermal/thermal_zone0/temp   # 단위: milli-°C
+# CPU 리틀코어(A55)
+cat /sys/class/thermal/thermal_zone0/temp   # cpul, 단위: milli-°C, 1000으로 나눠서 °C
+# CPU 빅코어(A76)
+cat /sys/class/thermal/thermal_zone1/temp   # cpub
+# GPU
+cat /sys/class/thermal/thermal_zone4/temp
+# NPU
+cat /sys/class/thermal/thermal_zone5/temp
+# DDR(메모리)
+cat /sys/class/thermal/thermal_zone6/temp
 ```
-slam_toolbox 부하 테스트 중 이 값을 계속 관찰해서 90°C 근처까지 가는지, 쓰로틀링
-표시(`vcgencmd get_throttled`는 라즈베리파이 전용이라 안 됨 — Armbian은
-`armbianmonitor -m`의 throttling 표시나 `dmesg | grep -i throttl`로 확인)가
-뜨는지 확인.
+slam_toolbox 부하 테스트 중 이 값들(특히 cpul/cpub)을 `watch -n1`으로 계속
+관찰해서 90°C 근처까지 가는지 확인. 쓰로틀링 여부는 `dmesg | grep -i throttl`로
+확인(Armbian 전용 `armbianmonitor`는 벤더 공식 이미지에선 없을 수 있음 — 위
+공식 경로가 더 확실함).
 
 ## 6. 요약 — 예상 체크리스트 (도착 후 순서대로 검증)
+
+### 6.0 실행 순서 확정 (2026-09-17, microSD 도착 즉시 진행)
+1. [ ] **microSD 도착 → Orange Pi 세팅 시작**: Ubuntu(Jammy 22.04, ROS2 Humble
+   호환) 공식 이미지 설치, 기본 기능(부팅/SSH/네트워크) 파악, **전원 확인**
+   (5V/3A 보조배터리 출력 확인 — 1.5번 참고)
+2. [ ] **RPLIDAR C1을 Orange Pi에 연결 확인** (USB, PC 때와 동일 절차로 프로토콜
+   응답 확인)
+3. [ ] **IMU(CJMCU-055)를 Orange Pi에 연결 확인** (I2C, 물리핀 1/3/5/6 —
+   `devlog`의 IMU 배선도 참고)
+4. [ ] **보조배터리 전원으로 Orange Pi 정상 작동 확인** (벽전원 대신 배터리로
+   구동했을 때 이상 없는지)
+
+이후 아래 6.1번(상세 체크리스트)으로 진행.
+
+### 6.1 상세 체크리스트
 0. [ ] **(구매 전)** 보유 중이거나 살 보조배터리가 5V/3A(15W) 이상 출력, 케이블도
    3A 대응인지 확인 — 위 1.5번 참고
 1. [ ] 벤더 공식 이미지 vs jonas5 커뮤니티 Armbian 이미지 중 선택, 설치
+   (2026-09-16 확인: 벤더 공식 Ubuntu Jammy 이미지 존재 — 이걸 1순위로)
 2. [ ] Docker 설치 및 `docker run hello-world` 확인
 3. [ ] RPLIDAR C1 USB 연결 → 프로토콜 응답 확인 (PC 때와 동일 절차)
 4. [ ] 이 프로젝트의 `docker/Dockerfile`을 arm64로 빌드 (별도 코드 수정 없이 되는지가 핵심 검증 포인트)
 5. [ ] Wi-Fi 연결 테스트 (안 되면 이더넷으로 우회)
-6. [ ] 부하 테스트(slam_toolbox 실행) 중 온도 모니터링 (`vcgencmd`/`cat /sys/class/thermal/...`) → 쓰로틀링 여부 확인, 필요시 쿨링 보강
+6. [ ] 부하 테스트(slam_toolbox 실행) 중 온도 모니터링 (`cat /sys/class/thermal/thermal_zone{0,1}/temp`) → 쓰로틀링 여부 확인, 필요시 쿨링 보강
